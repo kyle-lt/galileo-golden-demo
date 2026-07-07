@@ -219,13 +219,15 @@ class LangGraphAgent(BaseAgent):
         # Build callbacks list with Galileo (always enabled).
         # Pass the per-session logger so each browser tab writes to its own Galileo session.
         # Attach LangGraph spans to a manually started trace (see _process_query_async).
-        callbacks = [
-            GalileoCallback(
-                galileo_logger=galileo_logger,
-                start_new_trace=False,
-                flush_on_chain_end=False,
+        callbacks = []
+        if galileo_logger is not None:
+            callbacks.append(
+                GalileoCallback(
+                    galileo_logger=galileo_logger,
+                    start_new_trace=False,
+                    flush_on_chain_end=False,
+                )
             )
-        ]
         
         self.config = {"configurable": {"thread_id": self.session_id}, "callbacks": callbacks}
     
@@ -339,7 +341,11 @@ class LangGraphAgent(BaseAgent):
 
         if self.galileo_logger:
             galileo_cfg = self.domain_config.config.get("galileo", {})
-            project_name = galileo_cfg.get("project") or f"galileo-demo-{self.domain_config.name}"
+            project_name = (
+                os.environ.get("GALILEO_PROJECT")
+                or galileo_cfg.get("project")
+                or f"galileo-demo-{self.domain_config.name}"
+            )
             log_stream = galileo_cfg.get("log_stream", "default")
             init_agent_control(
                 self.galileo_logger,

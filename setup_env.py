@@ -30,13 +30,29 @@ def _derive_agent_control_url(console_url: str, explicit_url: str = "") -> str:
     return f"{console_url}/api/agent-control"
 
 
+def _get_global_project_override() -> Optional[str]:
+    """Return galileo_project from secrets.toml when set (overrides per-domain config)."""
+    for secrets_path in (Path(".streamlit/secrets.toml"), Path("../.streamlit/secrets.toml")):
+        if not secrets_path.exists():
+            continue
+        try:
+            secrets = toml.load(secrets_path)
+            override = (secrets.get("galileo_project") or "").strip()
+            if override:
+                return override
+        except Exception:
+            pass
+    return None
+
+
 def get_domain_project_name(domain_name: str, domain_config: Optional[dict] = None) -> str:
     """
     Get the Galileo project name for a domain.
     
     Priority:
-    1. If domain_config has a 'galileo.project' field, use that (explicit)
-    2. Otherwise, use default: "galileo-demo-{domain_name}"
+    1. If secrets.toml sets galileo_project, use that (global override via .env)
+    2. If domain_config has a 'galileo.project' field, use that (explicit)
+    3. Otherwise, use default: "galileo-demo-{domain_name}"
     
     Args:
         domain_name: Name of the domain (e.g., "finance")
@@ -45,6 +61,10 @@ def get_domain_project_name(domain_name: str, domain_config: Optional[dict] = No
     Returns:
         Project name for the domain
     """
+    global_override = _get_global_project_override()
+    if global_override:
+        return global_override
+
     # Check if domain config explicitly specifies a project
     if domain_config and "galileo" in domain_config and "project" in domain_config["galileo"]:
         return domain_config["galileo"]["project"]

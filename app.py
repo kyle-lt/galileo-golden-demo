@@ -1027,7 +1027,11 @@ def render_chat_page(
     if galileo_logger_key not in st.session_state:
         full_config = st.session_state.get(f"full_domain_config_{domain_name}", {})
         galileo_config = full_config.get("galileo", {})
-        project_name = galileo_config.get("project") or f"galileo-demo-{domain_name}"
+        project_name = (
+            os.environ.get("GALILEO_PROJECT")
+            or galileo_config.get("project")
+            or f"galileo-demo-{domain_name}"
+        )
         log_stream = galileo_config.get("log_stream", "default")
         try:
             galileo_logger = create_galileo_logger(project_name, log_stream)
@@ -1042,6 +1046,11 @@ def render_chat_page(
         except Exception as e:
             print(f"⚠️ Failed to create per-session GalileoLogger: {e}")
             st.session_state[galileo_logger_key] = None
+            st.warning(
+                f"Galileo tracing unavailable: {e}. "
+                "Set a unique `GALILEO_PROJECT` in `.env`, then run "
+                "`./scripts/demo.sh setup && ./scripts/demo.sh start`."
+            )
     # Always sync to the generic key so helpers (hallucination demo, etc.) can find it
     st.session_state.galileo_logger = st.session_state[galileo_logger_key]
 
@@ -1085,6 +1094,9 @@ def create_domain_page(domain_name: str):
     """Create a page function for a specific domain"""
     def page_func():
         multi_domain_agent_app(domain_name)
+
+    page_func.__name__ = f"page_{domain_name}"
+    page_func.__qualname__ = f"page_{domain_name}"
     return page_func
 
 

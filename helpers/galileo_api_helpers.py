@@ -106,7 +106,25 @@ def get_galileo_api_key() -> str:
     return api_key
 
 
-def get_galileo_project_id(project_name: str, starting_token: int = 0, limit: int = 100) -> str:
+def _resolve_galileo_project_id(project_name: str) -> str | None:
+    """Resolve a project ID by name via REST pagination and SDK list fallback."""
+    project_id = get_galileo_project_id(project_name)
+    if project_id:
+        return project_id
+
+    try:
+        from galileo.projects import Projects
+
+        for project in Projects().list() or []:
+            if getattr(project, "name", None) == project_name:
+                return project.id
+    except Exception as exc:
+        logging.debug("SDK project list failed: %s", exc)
+
+    return None
+
+
+def get_galileo_project_id(project_name: str, starting_token: int = 0, limit: int = 100) -> str | None:
     """
     Fetches the Galileo project ID for a given project name.
 
@@ -124,8 +142,6 @@ def get_galileo_project_id(project_name: str, starting_token: int = 0, limit: in
     """
     api_key = get_galileo_api_key()
     galileo_url = get_galileo_app_url()
-    
-    url = f"{galileo_url}/api/galileo/public/v2/projects/paginated?starting_token={starting_token}&limit={limit}"
     headers = {
         "accept": "*/*",
         "galileo-api-key": api_key,
@@ -134,41 +150,58 @@ def get_galileo_project_id(project_name: str, starting_token: int = 0, limit: in
         "referer": f"{galileo_url}/",
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",
-        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
     }
     data = {
-        "sort": {
-            "name": "updated_at",
-            "ascending": False
-        },
-        "filters": []
+        "sort": {"name": "updated_at", "ascending": False},
+        "filters": [],
     }
-    response = requests.post(url, headers=headers, json=data)
-    response.raise_for_status()
-    result = response.json()
-    for project in result.get("projects", []):
-        if project.get("name") == project_name:
-            return project.get("id")
-    return None
+
+    token = starting_token
+    while True:
+        url = f"{galileo_url}/api/galileo/public/v2/projects/paginated?starting_token={token}&limit={limit}"
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        result = response.json()
+        for project in result.get("projects", []):
+            if project.get("name") == project_name:
+                return project.get("id")
+        next_token = result.get("next_starting_token")
+        if next_token is None:
+            return None
+        token = next_token
 
 
 def create_galileo_logger(project_name: str, log_stream: str):
     """
-    Create a GalileoLogger for an existing project/log stream.
+    Create a GalileoLogger for a project/log stream.
 
-    Resolves project and log stream IDs first when possible so the SDK does not
-    attempt to create a project that already exists but is not returned by lookup
-    (e.g. a project in the org you do not have collaborator access to).
+    Resolves or creates the project explicitly so the SDK never falls back to
+    ``GalileoLogger(project=...)`` when a same-named project exists in the org
+    but is not visible to this API key.
     """
     from galileo import GalileoLogger
+    from galileo.projects import Projects
 
-    project_id = get_galileo_project_id(project_name)
-    if project_id:
-        log_stream_id = get_galileo_log_stream_id(project_id, log_stream)
-        if log_stream_id:
-            return GalileoLogger(project_id=project_id, log_stream_id=log_stream_id)
-        return GalileoLogger(project_id=project_id, log_stream=log_stream)
-    return GalileoLogger(project=project_name, log_stream=log_stream)
+    project_id = _resolve_galileo_project_id(project_name)
+    if not project_id:
+        try:
+            created = Projects().create(name=project_name)
+            project_id = created.id
+        except Exception as exc:
+            if "already exists" in str(exc).lower():
+                raise ValueError(
+                    f"Galileo project '{project_name}' already exists in your organization "
+                    "but is not accessible with your API key (likely missing collaborator access). "
+                    "Set GALILEO_PROJECT in .env to a unique name (e.g. galileo-demo-yourname), "
+                    "then run: ./scripts/demo.sh setup && ./scripts/demo.sh start"
+                ) from exc
+            raise
+
+    log_stream_id = get_galileo_log_stream_id(project_id, log_stream)
+    if log_stream_id:
+        return GalileoLogger(project_id=project_id, log_stream_id=log_stream_id)
+    return GalileoLogger(project_id=project_id, log_stream=log_stream)
 
 
 def get_galileo_log_stream_id(project_id: str, log_stream_name: str) -> str:
