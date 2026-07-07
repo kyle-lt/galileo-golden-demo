@@ -1115,28 +1115,29 @@ def main():
                 app_title = ui_config.get("app_title", f"{domain.title()} Assistant")
                 app_icon = ui_config.get("icon", "🤖")  # Default to robot emoji
                 
-                # Create page using st.Page
                 is_default = (domain == default_domain)
-                
+
+                # Register exactly one page per domain. Previously the default domain
+                # was added twice (root + /{domain}), which duplicated Streamlit keys
+                # such as llm_provider_{domain} across pages.
                 if is_default:
-                    # Default domain gets both root and named path
-                    # Default page (root URL)
-                    default_page = st.Page(
-                        create_domain_page(domain),
-                        title=app_title,
-                        icon=app_icon,
-                        default=True
+                    pages.append(
+                        st.Page(
+                            create_domain_page(domain),
+                            title=app_title,
+                            icon=app_icon,
+                            default=True,
+                        )
                     )
-                    pages.append(default_page)
-                
-                # Named path for all domains
-                page = st.Page(
-                    create_domain_page(domain),
-                    title=app_title,
-                    url_path=f"/{domain}",
-                    icon=app_icon
-                )
-                pages.append(page)
+                else:
+                    pages.append(
+                        st.Page(
+                            create_domain_page(domain),
+                            title=app_title,
+                            url_path=f"/{domain}",
+                            icon=app_icon,
+                        )
+                    )
                 
             except Exception as e:
                 st.error(f"Error loading domain '{domain}': {str(e)}")
