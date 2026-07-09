@@ -75,6 +75,7 @@ _QA_DOMAINS = {
     "healthcare": ("Healthcare FAQ", "Medication", "Information"),
     "restaurant": ("Restaurant FAQ", "Question", "Answer"),
     "insurance": ("Insurance FAQ", "Question", "Answer"),
+    "sled": ("SLED Citizen Services FAQ", "Question", "Answer"),
 }
 
 

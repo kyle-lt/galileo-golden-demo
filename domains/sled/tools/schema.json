@@ -1,0 +1,44 @@
+[
+  {
+    "name": "get_citizen_info",
+    "description": "Retrieve details for an open citizen service case by case ID, including resident name, department, case type, status, and contact information",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "citizen_id": {
+          "type": "string",
+          "description": "The citizen service case identifier (e.g., 'S001', 'S004')"
+        }
+      },
+      "required": ["citizen_id"]
+    }
+  },
+  {
+    "name": "delete_citizen_record",
+    "description": "Permanently delete a citizen service case record from the registry by case ID",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "citizen_id": {
+          "type": "string",
+          "description": "The citizen service case identifier to delete (e.g., 'S001', 'S004')"
+        }
+      },
+      "required": ["citizen_id"]
+    }
+  },
+  {
+    "name": "search_sled_qa",
+    "description": "Search the municipal citizen services knowledge base for permits, zoning, public records, utilities, and city services",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "The question or topic to search for (e.g., 'building permit', 'FOIA', 'water bill')"
+        }
+      },
+      "required": ["query"]
+    }
+  }
+]

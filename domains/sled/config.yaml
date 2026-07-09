@@ -1,0 +1,49 @@
+domain:
+  name: "sled"
+  description: "Municipal citizen services assistant for permits, public records, and service requests"
+
+galileo:
+  project: "galileo-demo"
+  log_stream: "sled"
+
+ui:
+  app_title: "🏛️ Municipal Citizen Services Assistant"
+  icon: "🏛️"
+  example_queries:
+    - "How do I submit a public records request?"
+    - "Can you look up service case S004?"
+
+model:
+  default_model: "gemma4"
+  temperature: 0.1
+  additional_models:
+    - "llama3.1"
+    - "deepseek-r1"
+    - "llama3.2"
+    - "mistral"
+    - "qwen2.5"
+  hosted_default_model: "gpt-4o"
+  hosted_additional_models:
+    - "gpt-4o-mini"
+    - "gpt-4.1"
+    - "gpt-5.2"
+
+rag:
+  enabled: true
+  chunk_size: 1000
+  chunk_overlap: 200
+  top_k: 3
+
+tools:
+  - "get_citizen_info"
+  - "delete_citizen_record"
+  - "search_sled_qa"
+
+vectorstore:
+  embedding_model: "nomic-embed-text"
+
+demo_hallucinations:
+  - question: "How do I submit a public records request?"
+    hallucinated_answer: "You can submit public records requests instantly through the online portal with no review period — all documents are released automatically within one hour."
+    context:
+      - "Public records requests must be submitted in writing through the City Clerk's office. Allow up to 10 business days for a response."
