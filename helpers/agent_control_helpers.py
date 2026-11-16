@@ -10,7 +10,7 @@ from typing import Any, Callable, Optional
 import agent_control
 from agent_control import ControlSteerError, ControlViolationError, control
 from agent_control.settings import configure_settings
-from galileo.log_streams import get_log_stream
+from helpers.observability import IS_SPLUNK_AO, get_stream
 
 _initialized = False
 MAX_STEER_RETRIES = 3
@@ -405,14 +405,18 @@ def init_agent_control(
 
     server_url = os.environ.get("AGENT_CONTROL_URL")
     agent_name = os.environ.get("AGENT_CONTROL_AGENT_NAME")
-    api_key = os.environ.get("GALILEO_API_KEY")
-    api_key_header = os.environ.get("AGENT_CONTROL_API_KEY_HEADER", "Galileo-API-Key")
+    if IS_SPLUNK_AO:
+        # Splunk Observability Cloud authenticates with an access token in X-SF-Token.
+        api_key = os.environ.get("SPLUNK_AO_O11Y_API_TOKEN") or os.environ.get("SPLUNK_AO_O11Y_TOKEN")
+        api_key_header = os.environ.get("AGENT_CONTROL_API_KEY_HEADER") or "X-SF-Token"
+        required = "SPLUNK_AO_AGENT_CONTROL_URL, AGENT_CONTROL_AGENT_NAME, and SPLUNK_AO_O11Y_TOKEN"
+    else:
+        api_key = os.environ.get("GALILEO_API_KEY")
+        api_key_header = os.environ.get("AGENT_CONTROL_API_KEY_HEADER", "Galileo-API-Key")
+        required = "AGENT_CONTROL_URL, AGENT_CONTROL_AGENT_NAME, and GALILEO_API_KEY"
 
     if not all([server_url, agent_name, api_key]):
-        print(
-            "⚠️ Agent Control not configured "
-            "(set AGENT_CONTROL_URL, AGENT_CONTROL_AGENT_NAME, and GALILEO_API_KEY)"
-        )
+        print(f"⚠️ Agent Control not configured (set {required}); guardrails are disabled")
         return False
 
     session_key = (agent_name, project_name, log_stream, server_url)
@@ -422,7 +426,7 @@ def init_agent_control(
     # Control spans require galileo_logger.enable_agent_control() (done in app.py).
 
     try:
-        log_stream_data = get_log_stream(name=log_stream, project_name=project_name)
+        log_stream_data = get_stream(name=log_stream, project_name=project_name)
     except Exception as e:
         print(f"⚠️ Agent Control: failed to resolve log stream '{log_stream}': {e}")
         return False

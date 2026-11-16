@@ -8,6 +8,18 @@ from pathlib import Path
 from typing import Optional
 
 
+_SPLUNK_AO_BACKENDS = {"splunk_ao", "splunk-ao", "splunk", "sao"}
+# galileo-core prefers GALILEO_* over SPLUNK_AO_* values, so these must be absent
+# in Splunk AO mode or traces silently go to the legacy Galileo console.
+_GALILEO_CONNECTION_VARS = ("GALILEO_API_KEY", "GALILEO_API_URL", "GALILEO_CONSOLE_URL")
+
+
+def is_splunk_ao_backend(secrets: Optional[dict] = None) -> bool:
+    """True when OBSERVABILITY_BACKEND (env, else secrets.toml) selects Splunk AO."""
+    backend = os.environ.get("OBSERVABILITY_BACKEND") or (secrets or {}).get("observability_backend", "")
+    return (backend or "galileo").strip().lower() in _SPLUNK_AO_BACKENDS
+
+
 def _derive_galileo_api_url(console_url: str, explicit_url: str = "") -> str:
     """Derive Galileo API URL from console URL when not set explicitly."""
     if explicit_url:
@@ -102,14 +114,29 @@ def setup_environment(domain_name: Optional[str] = None, domain_config: Optional
         # Load secrets
         secrets = toml.load(secrets_path)
 
-        console_url = secrets.get("galileo_console_url", "https://app.galileo.ai")
-        galileo_api_url = _derive_galileo_api_url(
-            console_url, secrets.get("galileo_api_url", "")
-        )
-        agent_control_url = _derive_agent_control_url(
-            console_url, secrets.get("agent_control_url", "")
-        )
-        galileo_api_key = secrets.get("galileo_api_key", "")
+        splunk_ao = is_splunk_ao_backend(secrets)
+        if splunk_ao:
+            os.environ["OBSERVABILITY_BACKEND"] = "splunk_ao"
+            for key in _GALILEO_CONNECTION_VARS:
+                os.environ.pop(key, None)
+            console_url = galileo_api_url = galileo_api_key = ""
+            # No derivation: the Galileo-console proxy path does not apply to O11y Cloud.
+            agent_control_url = (secrets.get("agent_control_url", "") or "").rstrip("/")
+            agent_control_api_key = (
+                os.environ.get("SPLUNK_AO_O11Y_API_TOKEN") or os.environ.get("SPLUNK_AO_O11Y_TOKEN", "")
+            )
+            agent_control_api_key_header = secrets.get("agent_control_api_key_header") or "X-SF-Token"
+        else:
+            console_url = secrets.get("galileo_console_url", "https://app.galileo.ai")
+            galileo_api_url = _derive_galileo_api_url(
+                console_url, secrets.get("galileo_api_url", "")
+            )
+            agent_control_url = _derive_agent_control_url(
+                console_url, secrets.get("agent_control_url", "")
+            )
+            galileo_api_key = secrets.get("galileo_api_key", "")
+            agent_control_api_key = galileo_api_key
+            agent_control_api_key_header = secrets.get("agent_control_api_key_header", "Galileo-API-Key")
         
         # Base environment variables (always set)
         env_vars = {
@@ -130,13 +157,10 @@ def setup_environment(domain_name: Optional[str] = None, domain_config: Optional
             "OPENAI_EMBEDDING_DIMENSIONS": str(
                 secrets.get("openai_embedding_dimensions", 768)
             ),
-            "GALILEO_API_KEY": galileo_api_key,
-            "GALILEO_API_URL": galileo_api_url,
-            "GALILEO_CONSOLE_URL": console_url,
             "AGENT_CONTROL_URL": agent_control_url,
-            "AGENT_CONTROL_API_KEY": galileo_api_key,
+            "AGENT_CONTROL_API_KEY": agent_control_api_key,
             "AGENT_CONTROL_AGENT_NAME": secrets.get("agent_control_agent_name", ""),
-            "AGENT_CONTROL_API_KEY_HEADER": secrets.get("agent_control_api_key_header", "Galileo-API-Key"),
+            "AGENT_CONTROL_API_KEY_HEADER": agent_control_api_key_header,
             "AGENT_CONTROL_RUNTIME_AUTH_MODE": secrets.get("agent_control_runtime_auth_mode", "jwt"),
             "AGENT_CONTROL_TARGET_TYPE": secrets.get("agent_control_target_type", "log_stream"),
             "ADMIN_KEY": secrets.get("admin_key", ""),
@@ -147,6 +171,12 @@ def setup_environment(domain_name: Optional[str] = None, domain_config: Optional
             "POSTGRES_DB": secrets.get("postgres_db", "vectordb"),
             "ENVIRONMENT": secrets.get("environment", "local")
         }
+        if not splunk_ao:
+            env_vars.update({
+                "GALILEO_API_KEY": galileo_api_key,
+                "GALILEO_API_URL": galileo_api_url,
+                "GALILEO_CONSOLE_URL": console_url,
+            })
         
         # If domain is specified, add domain-specific settings
         if domain_name:
@@ -157,6 +187,9 @@ def setup_environment(domain_name: Optional[str] = None, domain_config: Optional
             
             env_vars["GALILEO_PROJECT"] = project_name
             env_vars["GALILEO_LOG_STREAM"] = log_stream
+            if splunk_ao:
+                env_vars["SPLUNK_AO_PROJECT"] = project_name
+                env_vars["SPLUNK_AO_AGENT_STREAM"] = log_stream
         
         for key, value in env_vars.items():
             if value:  # Only set if value is not empty

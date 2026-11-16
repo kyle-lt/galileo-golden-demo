@@ -21,7 +21,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from agent_control import ControlSteerError, ControlViolationError, control
 from base_agent import BaseAgent
 from domain_manager import DomainConfig
-from galileo.handlers.langchain import GalileoCallback
+from helpers.observability import make_langchain_callback
 from helpers.agent_control_helpers import (
     ensure_trace_started,
     finalize_trace,
@@ -222,8 +222,8 @@ class LangGraphAgent(BaseAgent):
         callbacks = []
         if galileo_logger is not None:
             callbacks.append(
-                GalileoCallback(
-                    galileo_logger=galileo_logger,
+                make_langchain_callback(
+                    galileo_logger,
                     start_new_trace=False,
                     flush_on_chain_end=False,
                 )

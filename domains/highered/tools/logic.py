@@ -16,7 +16,6 @@ from typing import List, Optional, Tuple
 
 from langchain_postgres import PGVector
 
-from galileo import GalileoLogger
 
 _ROOT = Path(__file__).resolve().parents[3]
 _DOMAIN_NAME = "highered"
@@ -32,6 +31,7 @@ if _root not in sys.path:
     sys.path.insert(0, _root)
 
 from helpers.agent_control_helpers import domain_controlled_tool
+from helpers.observability import Logger as GalileoLogger
 from helpers.llm_utils import get_domain_chat_model, get_domain_embedding_model, resolve_embedding_provider
 from helpers.sql_utils import execute_sql, relational_table_name
 from helpers.text_to_sql_utils import generate_sql

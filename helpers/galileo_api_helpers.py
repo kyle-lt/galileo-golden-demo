@@ -10,12 +10,24 @@ import os
 import toml
 from pathlib import Path
 
+from helpers.observability import (
+    IS_SPLUNK_AO,
+    Projects,
+    get_stream,
+    make_logger,
+    splunk_ao_console_url,
+)
+
 
 def _load_secrets_if_needed():
     """
     Load secrets from .streamlit/secrets.toml if environment variables are not set.
     Only loads API key and console URL (not domain-specific settings).
     """
+    # Splunk AO reads SPLUNK_AO_* directly; re-adding GALILEO_* here would override it.
+    if IS_SPLUNK_AO:
+        return
+
     # Check if already loaded
     if os.environ.get("GALILEO_API_KEY") and os.environ.get("GALILEO_CONSOLE_URL"):
         return
@@ -50,6 +62,12 @@ def get_galileo_app_url() -> str:
     Raises:
         ValueError: If GALILEO_CONSOLE_URL is not set
     """
+    if IS_SPLUNK_AO:
+        url = splunk_ao_console_url()
+        if not url:
+            raise ValueError("SPLUNK_AO_REALM environment variable is not set")
+        return url
+
     _load_secrets_if_needed()
     
     galileo_url = os.environ.get("GALILEO_CONSOLE_URL")
@@ -58,6 +76,20 @@ def get_galileo_app_url() -> str:
     
     # Remove trailing slash if present
     return galileo_url.rstrip('/')
+
+
+def console_deep_link(path: str) -> str:
+    """
+    Build a console link for ``path`` (e.g. ``/project/<id>/log-streams/<id>``).
+
+    Splunk Observability Cloud uses a different URL scheme than the Galileo console,
+    so in Splunk AO mode this returns the console root (navigate via
+    Agent Observability > All projects).
+    """
+    root = get_galileo_app_url()
+    if IS_SPLUNK_AO:
+        return root
+    return f"{root}{path}"
 
 
 def get_galileo_api_url() -> str:
@@ -113,8 +145,6 @@ def _resolve_galileo_project_id(project_name: str) -> str | None:
         return project_id
 
     try:
-        from galileo.projects import Projects
-
         for project in Projects().list() or []:
             if getattr(project, "name", None) == project_name:
                 return project.id
@@ -140,6 +170,10 @@ def get_galileo_project_id(project_name: str, starting_token: int = 0, limit: in
         ValueError: If required environment variables are not set
         requests.RequestException: If API request fails
     """
+    if IS_SPLUNK_AO:
+        project = Projects().get(name=project_name)
+        return project.id if project else None
+
     api_key = get_galileo_api_key()
     galileo_url = get_galileo_app_url()
     headers = {
@@ -180,9 +214,6 @@ def create_galileo_logger(project_name: str, log_stream: str):
     ``GalileoLogger(project=...)`` when a same-named project exists in the org
     but is not visible to this API key.
     """
-    from galileo import GalileoLogger
-    from galileo.projects import Projects
-
     project_id = _resolve_galileo_project_id(project_name)
     if not project_id:
         try:
@@ -193,15 +224,16 @@ def create_galileo_logger(project_name: str, log_stream: str):
                 raise ValueError(
                     f"Galileo project '{project_name}' already exists in your organization "
                     "but is not accessible with your API key (likely missing collaborator access). "
-                    "Set GALILEO_PROJECT in .env to a unique name (e.g. galileo-demo-yourname), "
+                    "Set a unique project name in .env (GALILEO_PROJECT, or SPLUNK_AO_PROJECT "
+                    "when OBSERVABILITY_BACKEND=splunk_ao), "
                     "then run: ./scripts/demo.sh setup && ./scripts/demo.sh start"
                 ) from exc
             raise
 
     log_stream_id = get_galileo_log_stream_id(project_id, log_stream)
     if log_stream_id:
-        return GalileoLogger(project_id=project_id, log_stream_id=log_stream_id)
-    return GalileoLogger(project_id=project_id, log_stream=log_stream)
+        return make_logger(project_id=project_id, stream_id=log_stream_id)
+    return make_logger(project_id=project_id, stream=log_stream)
 
 
 def get_galileo_log_stream_id(project_id: str, log_stream_name: str) -> str:
@@ -219,6 +251,10 @@ def get_galileo_log_stream_id(project_id: str, log_stream_name: str) -> str:
         ValueError: If required environment variables are not set
         requests.RequestException: If API request fails
     """
+    if IS_SPLUNK_AO:
+        stream = get_stream(name=log_stream_name, project_id=project_id)
+        return stream.id if stream else None
+
     api_key = get_galileo_api_key()
     galileo_url = get_galileo_app_url()
     

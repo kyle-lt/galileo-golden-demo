@@ -9,7 +9,7 @@ import os
 import uuid
 import logging
 from typing import Optional, List, Dict, Any, Union
-from galileo import GalileoLogger
+from helpers.observability import Logger as GalileoLogger
 from helpers.galileo_api_helpers import create_galileo_logger
 
 logger = logging.getLogger(__name__)

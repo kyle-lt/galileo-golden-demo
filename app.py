@@ -19,12 +19,13 @@ if not os.getenv('_GALILEO_ENV_LOADED'):
     setup_environment()
     os.environ['_GALILEO_ENV_LOADED'] = 'true'
 
-from galileo import galileo_context, GalileoLogger
+from helpers.observability import BACKEND_LABEL, context as galileo_context
 from agent_factory import AgentFactory
 from domain_manager import DomainManager
 from langchain_core.messages import AIMessage, HumanMessage
 from agent_frameworks.langgraph.langgraph_rag import get_domain_rag_system
 from helpers.galileo_api_helpers import (
+    console_deep_link,
     create_galileo_logger,
     get_galileo_app_url,
     get_galileo_project_id,
@@ -406,7 +407,7 @@ def render_experiments_page(domain_name: str, domain_config, agent_factory):
         # Show link to view in Galileo
         try:
             console_url = get_galileo_app_url()
-            dataset_url = f"{console_url}/datasets/{dataset.id}"
+            dataset_url = console_deep_link(f"/datasets/{dataset.id}")
             st.markdown(f"[🔗 View Dataset in Galileo Console]({dataset_url})")
         except Exception:
             pass  # Silently fail if we can't get the URL
@@ -512,7 +513,7 @@ def render_select_dataset_by_name(domain_name: str):
                     # Show link to view in Galileo
                     try:
                         console_url = get_galileo_app_url()
-                        dataset_url = f"{console_url}/datasets/{dataset.id}"
+                        dataset_url = console_deep_link(f"/datasets/{dataset.id}")
                         st.markdown(f"[📊 View Dataset in Galileo]({dataset_url})")
                     except Exception:
                         pass  # Silently fail if we can't get the URL
@@ -547,7 +548,7 @@ def render_select_dataset_by_id():
                 # Show link to view in Galileo
                 try:
                     console_url = get_galileo_app_url()
-                    dataset_url = f"{console_url}/datasets/{dataset.id}"
+                    dataset_url = console_deep_link(f"/datasets/{dataset.id}")
                     st.markdown(f"[📊 View Dataset in Galileo]({dataset_url})")
                 except Exception:
                     pass  # Silently fail if we can't get the URL
@@ -609,7 +610,7 @@ def render_create_from_sample_data(domain_name: str, domain_config):
                 # Show link to view in Galileo
                 try:
                     console_url = get_galileo_app_url()
-                    dataset_url = f"{console_url}/datasets/{dataset.id}"
+                    dataset_url = console_deep_link(f"/datasets/{dataset.id}")
                     st.markdown(f"[📊 View Dataset in Galileo]({dataset_url})")
                 except Exception:
                     pass  # Silently fail if we can't get the URL
@@ -681,7 +682,7 @@ def render_upload_csv(domain_name: str):
                             # Show link to view in Galileo
                             try:
                                 console_url = get_galileo_app_url()
-                                dataset_url = f"{console_url}/datasets/{dataset.id}"
+                                dataset_url = console_deep_link(f"/datasets/{dataset.id}")
                                 st.markdown(f"[📊 View Dataset in Galileo]({dataset_url})")
                             except Exception:
                                 pass  # Silently fail if we can't get the URL
@@ -743,8 +744,8 @@ def run_experiment_ui(
                         if project_name:
                             project_id = get_galileo_project_id(project_name)
                             if project_id:
-                                experiment_url = f"{console_url}/project/{project_id}/experiments/{experiment_obj.id}"
-                                st.markdown(f"### [📊 View Experiment Results in Galileo]({experiment_url})")
+                                experiment_url = console_deep_link(f"/project/{project_id}/experiments/{experiment_obj.id}")
+                                st.markdown(f"### [📊 View Experiment Results in {BACKEND_LABEL}]({experiment_url})")
                             else:
                                 st.info("View the experiment results in the Galileo Console")
                         else:
@@ -818,7 +819,7 @@ def multi_domain_agent_app(domain_name: str):
     # Chat Tab
     with tab1:
         with st.sidebar:
-            st.subheader("Galileo Tracing")
+            st.subheader(f"{BACKEND_LABEL} Tracing")
 
             # Get project and log stream names from environment variables (set by setup_environment)
             project_name = os.environ.get("GALILEO_PROJECT", "")
@@ -833,8 +834,8 @@ def multi_domain_agent_app(domain_name: str):
                         log_stream_id = get_galileo_log_stream_id(project_id, log_stream_name)
 
                         if log_stream_id:
-                            project_url = f"{console_url}/project/{project_id}/log-streams/{log_stream_id}"
-                            st.markdown(f"[📊 View traces in Galileo]({project_url})")
+                            project_url = console_deep_link(f"/project/{project_id}/log-streams/{log_stream_id}")
+                            st.markdown(f"[📊 View traces in {BACKEND_LABEL}]({project_url})")
                         else:
                             st.write("Log stream not found")
                     else:
@@ -1047,8 +1048,8 @@ def render_chat_page(
             print(f"⚠️ Failed to create per-session GalileoLogger: {e}")
             st.session_state[galileo_logger_key] = None
             st.warning(
-                f"Galileo tracing unavailable: {e}. "
-                "Set a unique `GALILEO_PROJECT` in `.env`, then run "
+                f"{BACKEND_LABEL} tracing unavailable: {e}. "
+                "Check the observability settings in `.env`, then run "
                 "`./scripts/demo.sh setup && ./scripts/demo.sh start`."
             )
     # Always sync to the generic key so helpers (hallucination demo, etc.) can find it

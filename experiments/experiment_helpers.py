@@ -4,11 +4,16 @@ Helper functions for running experiments from both CLI and UI.
 import os
 import csv
 from typing import List, Dict, Any, Optional
-from galileo.experiments import run_experiment
-from galileo.datasets import get_dataset, create_dataset, list_datasets
 from galileo_core.schemas.shared.scorers.scorer_name import ScorerName as GalileoScorers
-from galileo import galileo_context
-from galileo.handlers.langchain import GalileoCallback
+from helpers.observability import (
+    context as galileo_context,
+    convert_metrics,
+    create_dataset,
+    get_dataset,
+    list_datasets,
+    make_langchain_callback,
+    run_experiment,
+)
 
 
 # Default metrics for experiments
@@ -156,7 +161,7 @@ def create_experiment_function(
         # Override the agent's config to use the proper callback for experiments
         if is_in_experiment:
             # Create callback that doesn't start/flush traces when in experiment
-            galileo_callback = GalileoCallback(
+            galileo_callback = make_langchain_callback(
                 galileo_logger,
                 start_new_trace=False,
                 flush_on_chain_end=False
@@ -227,7 +232,7 @@ def run_domain_experiment(
         experiment_name,
         dataset=dataset,
         function=experiment_function,
-        metrics=metrics,
+        metrics=convert_metrics(metrics),
         project=project
     )
     
