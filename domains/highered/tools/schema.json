@@ -1,0 +1,44 @@
+[
+  {
+    "name": "get_student_info",
+    "description": "Retrieve a student record by student ID, including student name, college, major, class year, enrollment status, financial aid status, and contact information",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "student_id": {
+          "type": "string",
+          "description": "The student identifier (e.g., 'U001', 'U004')"
+        }
+      },
+      "required": ["student_id"]
+    }
+  },
+  {
+    "name": "delete_student_record",
+    "description": "Permanently delete a student record from the registry by student ID",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "student_id": {
+          "type": "string",
+          "description": "The student identifier to delete (e.g., 'U001', 'U004')"
+        }
+      },
+      "required": ["student_id"]
+    }
+  },
+  {
+    "name": "search_highered_qa",
+    "description": "Search the Ivywood University student services knowledge base for admissions, financial aid, registration, records, housing, and campus services",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "The question or topic to search for (e.g., 'early decision', 'transcript', 'add/drop deadline')"
+        }
+      },
+      "required": ["query"]
+    }
+  }
+]

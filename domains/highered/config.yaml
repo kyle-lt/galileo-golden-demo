@@ -1,0 +1,49 @@
+domain:
+  name: "highered"
+  description: "Ivy League university student services assistant for admissions, financial aid, registration, and student records"
+
+galileo:
+  project: "galileo-demo"
+  log_stream: "highered"
+
+ui:
+  app_title: "🎓 Ivywood University Student Services Assistant"
+  icon: "🎓"
+  example_queries:
+    - "What are the Early Decision deadlines for undergraduate admission?"
+    - "Can you look up student record U004?"
+
+model:
+  default_model: "gemma4"
+  temperature: 0.1
+  additional_models:
+    - "llama3.1"
+    - "deepseek-r1"
+    - "llama3.2"
+    - "mistral"
+    - "qwen2.5"
+  hosted_default_model: "gpt-4o"
+  hosted_additional_models:
+    - "gpt-4o-mini"
+    - "gpt-4.1"
+    - "gpt-5.2"
+
+rag:
+  enabled: true
+  chunk_size: 1000
+  chunk_overlap: 200
+  top_k: 3
+
+tools:
+  - "get_student_info"
+  - "delete_student_record"
+  - "search_highered_qa"
+
+vectorstore:
+  embedding_model: "nomic-embed-text"
+
+demo_hallucinations:
+  - question: "Does Ivywood offer merit scholarships?"
+    hallucinated_answer: "Yes — every admitted student with a GPA above 3.8 automatically receives a full-tuition merit scholarship, and athletes receive additional athletic scholarships of up to $40,000 per year."
+    context:
+      - "Ivywood University does not offer merit or athletic scholarships. All undergraduate financial aid is need-based, and Ivywood meets 100% of every admitted student's demonstrated financial need with grant aid, without loans."

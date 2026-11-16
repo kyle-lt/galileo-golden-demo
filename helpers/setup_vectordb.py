@@ -76,6 +76,7 @@ _QA_DOMAINS = {
     "restaurant": ("Restaurant FAQ", "Question", "Answer"),
     "insurance": ("Insurance FAQ", "Question", "Answer"),
     "sled": ("SLED Citizen Services FAQ", "Question", "Answer"),
+    "highered": ("Ivywood University Student Services FAQ", "Question", "Answer"),
 }
 
 
